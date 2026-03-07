@@ -1,0 +1,11 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Mission Control",
+			"type": "shell",
+			"command": "C:/Users/AADITYA/OneDrive/Desktop/panel/.venv/Scripts/python.exe main.py",
+			"group": "build"
+		}
+	]
+}
