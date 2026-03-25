@@ -3,12 +3,24 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 import numpy as np
 from PIL import Image, ImageTk
+from tank_operations import open_tank_operations
+from vehicle_operations import open_vehicle_operations
+from engine_operations import open_engine_operations
+
+import time
+from datetime import datetime, timezone, timedelta
+
+# Mission start time (resets each launch)
+mission_start_time = time.time()
 
 # Create main window
 root = tk.Tk()
 root.title("Mission Control Window")
 root.geometry("1200x800")
 root.configure(bg='#0a0a1a')  # dark navy background
+
+# Track whether system is stopped
+system_stopped = False
 
 # Sample data length and arrays
 length = 100
@@ -29,9 +41,11 @@ press_out = 100 + np.random.randn(length) * 0.5
 
 # Configure grid
 root.grid_rowconfigure(0, weight=2)  # top row for logo + axis graphs
-root.grid_rowconfigure(1, weight=1)  # bottom row for side panels
+root.grid_rowconfigure(1, weight=1)  # middle row for side panels
+root.grid_rowconfigure(2, weight=0)  # bottom row for buttons (fixed height)
 root.grid_columnconfigure(0, weight=1)  # left column for logo/velocity/acc/alt
-root.grid_columnconfigure(1, weight=2)  # right column for graphs/electrical
+root.grid_columnconfigure(1, weight=2)  # middle column for graphs/electrical
+root.grid_columnconfigure(2, weight=0)  # right column for buttons (fixed width)
 
 # Global line objects (will be assigned after creation)
 line1 = None
@@ -60,6 +74,37 @@ try:
     logo_label.pack(side=tk.LEFT, padx=5)
 except Exception as e:
     print(f"Could not load logo: {e}")
+
+# Mission title and clock
+title_frame = tk.Frame(logo_frame, bg='#0a0a1a')
+title_frame.pack(side=tk.LEFT, padx=20)
+tk.Label(title_frame, text="MISSION CONTROL", font=('Arial', 18, 'bold'), fg='cyan', bg='#0a0a1a').pack(anchor='w')
+
+clock_frame = tk.Frame(title_frame, bg='#0a0a1a')
+clock_frame.pack(anchor='w')
+utc_label = tk.Label(clock_frame, text="", font=('Consolas', 10), fg='#aaaaaa', bg='#0a0a1a')
+utc_label.pack(side=tk.LEFT)
+ist_label = tk.Label(clock_frame, text="", font=('Consolas', 10), fg='#aaaaaa', bg='#0a0a1a')
+ist_label.pack(side=tk.LEFT, padx=(15, 0))
+
+timer_label = tk.Label(title_frame, text="T+ 00:00:00", font=('Consolas', 12, 'bold'), fg='orange', bg='#0a0a1a')
+timer_label.pack(anchor='w')
+status_indicator = tk.Label(title_frame, text="\u25CF SYSTEMS ONLINE", font=('Arial', 10, 'bold'), fg='lime', bg='#0a0a1a')
+status_indicator.pack(anchor='w')
+
+def update_clock():
+    utc_now = datetime.now(timezone.utc)
+    ist_now = utc_now + timedelta(hours=5, minutes=30)
+    utc_label.config(text=utc_now.strftime("UTC  %H:%M:%S"))
+    ist_label.config(text=ist_now.strftime("IST  %H:%M:%S"))
+    # Mission elapsed timer
+    elapsed = int(time.time() - mission_start_time)
+    h, rem = divmod(elapsed, 3600)
+    m, s = divmod(rem, 60)
+    timer_label.config(text=f"T+ {h:02d}:{m:02d}:{s:02d}")
+    root.after(1000, update_clock)
+
+update_clock()
 
 # Side frame for velocity, acceleration, altitude
 side_frame = tk.Frame(root, bg='#0a0a1a')
@@ -150,6 +195,80 @@ canvas_elec.draw()
 canvas_elec.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 canvas_elec.get_tk_widget().configure(bg='#0a0a1a')
 
+# Button frame for operations
+button_frame = tk.Frame(root, bg='#0a0a1a')
+button_frame.grid(row=0, column=2, rowspan=3, sticky='ns', padx=10, pady=10)
+
+def tank_command():
+    print("Tank Operations button clicked!")
+    try:
+        open_tank_operations()  # Open tank operations window
+        print("Tank window opened successfully")
+    except Exception as e:
+        print(f"Error opening tank window: {e}")
+
+def vehicle_command():
+    print("Vehicle Operations button clicked!")
+    try:
+        open_vehicle_operations()  # Open vehicle operations window
+        print("Vehicle window opened successfully")
+    except Exception as e:
+        print(f"Error opening vehicle window: {e}")
+
+def engine_command():
+    print("Engine Control button clicked!")
+    try:
+        open_engine_operations()  # Open engine operations window
+        print("Engine window opened successfully")
+    except Exception as e:
+        print(f"Error opening engine window: {e}")
+
+def stop_command():
+    global system_stopped
+    system_stopped = not system_stopped
+    if system_stopped:
+        status_indicator.config(text="\u25CF EMERGENCY STOP", fg='red')
+        stop_canvas.itemconfig('all', fill='white')
+        stop_canvas.config(bg='darkred')
+        print("EMERGENCY STOP ACTIVATED")
+    else:
+        status_indicator.config(text="\u25CF SYSTEMS ONLINE", fg='lime')
+        stop_canvas.itemconfig('all', fill='white')
+        stop_canvas.config(bg='red')
+        print("Systems resumed")
+
+# Tank Operations button - blue with vertical text
+tank_canvas = tk.Canvas(button_frame, bg='blue', height=150, width=60, highlightthickness=0, relief='raised', borderwidth=3)
+tank_canvas.create_text(30, 75, text="Fuel Tank\nOperations", angle=90, fill='white', font=('Arial', 10, 'bold'))
+tank_canvas.bind("<Button-1>", lambda e: tank_command())
+tank_canvas.bind("<Enter>", lambda e: tank_canvas.config(bg='lightblue'))
+tank_canvas.bind("<Leave>", lambda e: tank_canvas.config(bg='blue'))
+tank_canvas.pack(side=tk.TOP, expand=True, fill=tk.X, padx=5, pady=5)
+
+# Vehicle Operations button - yellow with vertical text
+vehicle_canvas = tk.Canvas(button_frame, bg='yellow', height=150, width=60, highlightthickness=0, relief='raised', borderwidth=3)
+vehicle_canvas.create_text(30, 75, text="Rocket\nOperations", angle=90, fill='black', font=('Arial', 10, 'bold'))
+vehicle_canvas.bind("<Button-1>", lambda e: vehicle_command())
+vehicle_canvas.bind("<Enter>", lambda e: vehicle_canvas.config(bg='lightyellow'))
+vehicle_canvas.bind("<Leave>", lambda e: vehicle_canvas.config(bg='yellow'))
+vehicle_canvas.pack(side=tk.TOP, expand=True, fill=tk.X, padx=5, pady=5)
+
+# Engine Control button - green with vertical text
+engine_canvas = tk.Canvas(button_frame, bg='green', height=150, width=60, highlightthickness=0, relief='raised', borderwidth=3)
+engine_canvas.create_text(30, 75, text="Engine\nControl", angle=90, fill='white', font=('Arial', 10, 'bold'))
+engine_canvas.bind("<Button-1>", lambda e: engine_command())
+engine_canvas.bind("<Enter>", lambda e: engine_canvas.config(bg='lightgreen'))
+engine_canvas.bind("<Leave>", lambda e: engine_canvas.config(bg='green'))
+engine_canvas.pack(side=tk.TOP, expand=True, fill=tk.X, padx=5, pady=5)
+
+# STOP button - red with vertical text
+stop_canvas = tk.Canvas(button_frame, bg='red', height=150, width=60, highlightthickness=0, relief='raised', borderwidth=3)
+stop_canvas.create_text(30, 75, text="STOP", angle=90, fill='white', font=('Arial', 12, 'bold'))
+stop_canvas.bind("<Button-1>", lambda e: stop_command())
+stop_canvas.bind("<Enter>", lambda e: stop_canvas.config(bg='lightcoral'))
+stop_canvas.bind("<Leave>", lambda e: stop_canvas.config(bg='red'))
+stop_canvas.pack(side=tk.TOP, expand=True, fill=tk.X, padx=5, pady=5)
+
 # Top frame for X, Y, Z graphs
 top_frame = tk.Frame(root, bg='#0a0a1a')
 top_frame.grid(row=0, column=1, sticky='nsew')
@@ -212,9 +331,13 @@ def update():
     global y1, y2, y3, vel, acc, alt, bat, temp_in, temp_out, press_in, press_out
     global line1, line2, line3, line_vel, line_acc, line_alt, line_batt, line_temp_in, line_temp_out, line_press_in, line_press_out
 
-    def roll_append(arr, scale=1):
+    if system_stopped:
+        root.after(500, update)
+        return
+
+    def roll_append(arr, center=0, scale=1):
         arr = np.roll(arr, -1)
-        arr[-1] = np.random.randn() * scale
+        arr[-1] = center + np.random.randn() * scale
         return arr
 
     y1 = roll_append(y1)
@@ -223,11 +346,11 @@ def update():
     vel = roll_append(vel)
     acc = roll_append(acc)
     alt = roll_append(alt)
-    bat = roll_append(bat, 0.1) + 12 - 12
-    temp_in = roll_append(temp_in, 0.5)
-    temp_out = roll_append(temp_out, 0.5)
-    press_in = roll_append(press_in, 0.5)
-    press_out = roll_append(press_out, 0.5)
+    bat = roll_append(bat, center=12, scale=0.1)
+    temp_in = roll_append(temp_in, center=20, scale=0.5)
+    temp_out = roll_append(temp_out, center=15, scale=0.5)
+    press_in = roll_append(press_in, center=101, scale=0.5)
+    press_out = roll_append(press_out, center=100, scale=0.5)
 
     line1.set_ydata(y1)
     line2.set_ydata(y2)

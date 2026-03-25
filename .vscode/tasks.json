@@ -4,7 +4,7 @@
 		{
 			"label": "Run Mission Control",
 			"type": "shell",
-			"command": "C:/Users/AADITYA/OneDrive/Desktop/panel/.venv/Scripts/python.exe main.py",
+			"command": "C:/Users/AADITYA/OneDrive/Desktop/panel/.venv/Scripts/python.exe main_dpg.py",
 			"group": "build"
 		}
 	]
