@@ -20,6 +20,11 @@ system_stopped = False
 length = 100
 x = np.linspace(0, 10, length)
 
+#max limit of the data 
+MAX_POINTS = 100
+#last update 
+last_update = 0 
+
 # Initialize with random values
 y1 = np.random.randn(length).tolist()
 y2 = np.random.randn(length).tolist()
@@ -148,17 +153,20 @@ def stop_command():
 def roll_append(arr, center=0, scale=1):
     arr = np.roll(arr, -1)
     arr[-1] = center + np.random.randn() * scale
-    return arr.tolist()
+    return arr 
 
 # ── Layout resize function ──
 _HEADER_H = 320
 _VPAD     = 20
 
+
+# UI HEREEEE
 def resize_layout():
     vp_h = dpg.get_viewport_client_height()
     avail = max(200, vp_h - _HEADER_H - _VPAD)
 
-    # Left column: 3 equal stacked plots
+    # Left column: 3 equal stacked plots 
+    #acc velocity and altitude graph space 
     lh = max(50, avail // 3)
     for _t in ("plot_vel", "plot_acc", "plot_alt"):
         dpg.configure_item(_t, height=lh)
@@ -181,7 +189,10 @@ def resize_layout():
 # ── Frame-based update ──
 frame_counter = 0
 
+
+#FRAME UPDATE
 def update_callback():
+    global last_update 
     global system_stopped, y1, y2, y3, vel, acc, alt, bat, temp_in, temp_out, press_in, press_out
     global frame_counter
     frame_counter += 1
@@ -221,7 +232,7 @@ def update_callback():
         resize_layout()
 
     # Update graphs ~every 30 frames (~0.5 s at 60 fps)
-    if frame_counter % 30 != 0:
+    if frame_counter % 2 != 0:
         return
     if system_stopped:
         return
@@ -237,6 +248,21 @@ def update_callback():
     temp_out = roll_append(temp_out, center=15, scale=0.5)
     press_in = roll_append(press_in, center=101, scale=0.5)
     press_out = roll_append(press_out, center=100, scale=0.5)
+    
+    # y1 = y1[-MAX_POINTS:]
+    # y2 = y2[-MAX_POINTS:]
+    # y3 = y3[-MAX_POINTS:]
+    # vel = vel[-MAX_POINTS:]
+    # acc = acc[-MAX_POINTS:]
+    # alt = alt[-MAX_POINTS:]
+    # bat = bat[-MAX_POINTS:]
+    # temp_in = temp_in[-MAX_POINTS:]
+    # temp_out = temp_out[-MAX_POINTS:]
+    # press_in = press_in[-MAX_POINTS:]
+    # press_out = press_out[-MAX_POINTS:]
+    # x_list = x_list[-MAX_POINTS:]
+
+    
 
     dpg.set_value(line_x_series_id, [x_list, y1])
     dpg.set_value(line_y_series_id, [x_list, y2])
@@ -249,6 +275,8 @@ def update_callback():
     dpg.set_value(line_temp_out_series_id, [x_list, temp_out])
     dpg.set_value(line_press_in_series_id, [x_list, press_in])
     dpg.set_value(line_press_out_series_id, [x_list, press_out])
+
+    # last_update = time.time()
 
 # ── Themes ──
 # Dark window theme
