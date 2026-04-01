@@ -4,6 +4,10 @@ import time
 from datetime import datetime, timezone, timedelta
 from PIL import Image
 import os
+try:
+    from serial.tools import list_ports  # type: ignore[import]
+except Exception:
+    list_ports = None
 
 # Import operation modules
 from tank_operations_dpg import open_tank_operations
@@ -15,6 +19,7 @@ mission_start_time = time.time()
 
 # Track whether system is stopped
 system_stopped = False
+usb_connected = True
 
 # Sample data length and arrays
 length = 100
@@ -151,8 +156,28 @@ def engine_command():
 def stop_command():
     global system_stopped
     system_stopped = not system_stopped
+    update_status_indicator()
+
+
+def is_usb_connected():
+    if list_ports is None:
+        return False
+
+    try:
+        return len(list(list_ports.comports())) > 0
+    except Exception:
+        return False
+
+
+def update_status_indicator():
+    if status_indicator_id is None:
+        return
+
     if system_stopped:
         dpg.set_value(status_indicator_id, "EMERGENCY STOP")
+        dpg.bind_item_theme(status_indicator_id, red_text_theme)
+    elif not usb_connected:
+        dpg.set_value(status_indicator_id, "SYSTEM DISCONNECTED")
         dpg.bind_item_theme(status_indicator_id, red_text_theme)
     else:
         dpg.set_value(status_indicator_id, "SYSTEMS ONLINE")
@@ -201,10 +226,16 @@ frame_counter = 0
 #FRAME UPDATE
 def update_callback():
     global last_update 
-    global system_stopped, y1, y2, y3, vel, acc, alt, bat, temp_in, temp_out, press_in, press_out
+    global system_stopped, usb_connected, y1, y2, y3, vel, acc, alt, bat, temp_in, temp_out, press_in, press_out
     global frame_counter
     global gps_sat_available, telemetry_rate_hz, link_delay_ms
     frame_counter += 1
+
+    if frame_counter == 1 or frame_counter % 60 == 0:
+        new_usb_connected = is_usb_connected()
+        if new_usb_connected != usb_connected:
+            usb_connected = new_usb_connected
+            update_status_indicator()
 
     # Clocks every frame is fine (cheap)
     utc_now = datetime.now(timezone.utc)
@@ -238,6 +269,8 @@ def update_callback():
             lw = logo_width + 16 if logo_texture_id else 0
             sw = max(
                 dpg.get_text_size("SYSTEMS ONLINE", font=font_clocks)[0],
+                dpg.get_text_size("SYSTEM DISCONNECTED", font=font_clocks)[0],
+                dpg.get_text_size("EMERGENCY STOP", font=font_clocks)[0],
                 dpg.get_text_size("GPS SAT AVAILABLE - 16", font=font_clocks)[0],
                 dpg.get_text_size("TELEMETRY RATE - 058.0 Hz", font=font_clocks)[0],
                 dpg.get_text_size("DELAY - 320 ms", font=font_clocks)[0],
@@ -376,6 +409,9 @@ with dpg.window(tag="main_window", no_scrollbar=True, no_scroll_with_mouse=True)
             gps_sat_label_id = dpg.add_text("GPS SAT AVAILABLE - 11", color=GREY)
             telemetry_rate_label_id = dpg.add_text("TELEMETRY RATE - 050.0 Hz", color=GREY)
             delay_label_id = dpg.add_text("DELAY - 180 ms", color=GREY)
+
+    usb_connected = is_usb_connected()
+    update_status_indicator()
 
     dpg.add_separator()
 
