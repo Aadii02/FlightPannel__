@@ -103,6 +103,9 @@ utc_label_id = None
 ist_label_id = None
 timer_label_id = None
 status_indicator_id = None
+gps_sat_label_id = None
+telemetry_rate_label_id = None
+delay_label_id = None
 line_x_series_id = None
 line_y_series_id = None
 line_z_series_id = None
@@ -114,6 +117,11 @@ line_temp_in_series_id = None
 line_temp_out_series_id = None
 line_press_in_series_id = None
 line_press_out_series_id = None
+
+# Header telemetry status (simulated incoming link data)
+gps_sat_available = 11
+telemetry_rate_hz = 50.0
+link_delay_ms = 180
 
 # ── Button callbacks ──
 def tank_command():
@@ -195,6 +203,7 @@ def update_callback():
     global last_update 
     global system_stopped, y1, y2, y3, vel, acc, alt, bat, temp_in, temp_out, press_in, press_out
     global frame_counter
+    global gps_sat_available, telemetry_rate_hz, link_delay_ms
     frame_counter += 1
 
     # Clocks every frame is fine (cheap)
@@ -208,6 +217,16 @@ def update_callback():
     m, s = divmod(rem, 60)
     dpg.set_value(timer_label_id, f"T+ {h:02d}:{m:02d}:{s:02d}")
 
+    # Simulated incoming comms/status values
+    if frame_counter % 30 == 0:
+        gps_sat_available = int(np.clip(gps_sat_available + np.random.randint(-1, 2), 8, 16))
+        telemetry_rate_hz = float(np.clip(telemetry_rate_hz + np.random.randn() * 1.4, 42.0, 58.0))
+        link_delay_ms = int(np.clip(link_delay_ms + np.random.randint(-20, 21), 90, 320))
+
+    dpg.set_value(gps_sat_label_id, f"GPS SAT AVAILABLE - {gps_sat_available}")
+    dpg.set_value(telemetry_rate_label_id, f"TELEMETRY RATE - {telemetry_rate_hz:05.1f} Hz")
+    dpg.set_value(delay_label_id, f"DELAY - {link_delay_ms} ms")
+
     # ── Dynamic centering + layout resize (every 5 frames) ──
     if frame_counter % 5 == 0:
         try:
@@ -219,9 +238,9 @@ def update_callback():
             lw = logo_width + 16 if logo_texture_id else 0
             sw = max(
                 dpg.get_text_size("SYSTEMS ONLINE", font=font_clocks)[0],
-                dpg.get_text_size("GPS SAT AVAILABLE -", font=font_clocks)[0],
-                dpg.get_text_size("TELEMETRY RATE -", font=font_clocks)[0],
-                dpg.get_text_size("DELAY -", font=font_clocks)[0],
+                dpg.get_text_size("GPS SAT AVAILABLE - 16", font=font_clocks)[0],
+                dpg.get_text_size("TELEMETRY RATE - 058.0 Hz", font=font_clocks)[0],
+                dpg.get_text_size("DELAY - 320 ms", font=font_clocks)[0],
             ) + 16
             right_gap = 24
             left_spacer = max(8, int((vp_w - lw - center_w - sw - right_gap - 24) / 2))
@@ -354,9 +373,9 @@ with dpg.window(tag="main_window", no_scrollbar=True, no_scroll_with_mouse=True)
             status_indicator_id = dpg.add_text("SYSTEMS ONLINE", color=GREEN)
             dpg.bind_item_theme(status_indicator_id, green_text_theme)
             dpg.bind_item_font(status_indicator_id, font_status)
-            dpg.add_text("GPS SAT AVAILABLE -", color=GREY)
-            dpg.add_text("TELEMETRY RATE -", color=GREY)
-            dpg.add_text("DELAY -", color=GREY)
+            gps_sat_label_id = dpg.add_text("GPS SAT AVAILABLE - 11", color=GREY)
+            telemetry_rate_label_id = dpg.add_text("TELEMETRY RATE - 050.0 Hz", color=GREY)
+            delay_label_id = dpg.add_text("DELAY - 180 ms", color=GREY)
 
     dpg.add_separator()
 
